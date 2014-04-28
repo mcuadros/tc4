@@ -35,8 +35,6 @@ class Tokenizer
 
     private function extractTokens($pattern)
     {
-        $direction = self::RIGTH;
-
         $output = [];
         $length = strlen($pattern);
         for($i=0;$i<$length;$i++) {
