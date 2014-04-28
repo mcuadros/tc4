@@ -63,9 +63,24 @@ class UnAnonymizer
         $this->userStack = $userStack;
     }
 
-    public function process($filename)
+    private function readFromSTDIN()
     {
-        $data = file($filename);
+        $data = [];
+        while($line = fgets(STDIN)){
+            $data[] = $line;
+        }
+
+        return $data;
+    }
+
+    public function process($filename = null)
+    {
+        if ($filename) {
+            $data = file($filename);
+        } else {
+            $data = $this->readFromSTDIN();
+        }
+
         $lines = (int) trim(array_shift($data));
 
         $result = [];
@@ -117,10 +132,10 @@ class Printer
 }
 
 $userStack = new UserStack();
-$userStack->initialize('students');
+$userStack->initialize(__DIR__ .'/data/students');
 
 $unAnonymizer = new UnAnonymizer($userStack);
-$result = $unAnonymizer->process('pool');
+$result = $unAnonymizer->process();
 
 $printer = new Printer();
 $printer->output($result);
