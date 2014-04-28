@@ -1,25 +1,16 @@
 <?php
 
-
 class Tokenizer
 {
     const TKN_START = 1;
-    const TKN_STR_UP = 11;
-    const TKN_STR_DOWN = 12;
-    const TKN_STR_RIGTH = 21;
-    const TKN_STR_LEFT = 22;
-    const TKN_CUR_RIGTH = 31;
-    const TKN_CUR_LEFT = 32;
+    const TKN_STR = 10;
+    const TKN_CUR_RIGTH = 20;
+    const TKN_CUR_LEFT = 21;
 
     const SYM_START = '#';
     const SYM_CUR_LEFT = '/';
     const SYM_CUR_RIGTH = '\\';
     const SYM_STRAIGHT = '-';
-
-    const UP = 1;
-    const RIGTH = 2;
-    const DOWN = 3;
-    const LEFT = 4;
 
     public function tokenize($pattern)
     {
@@ -49,20 +40,17 @@ class Tokenizer
         $output = [];
         $length = strlen($pattern);
         for($i=0;$i<$length;$i++) {
-            var_dump($pattern[$i]);
             switch ($pattern[$i]) {
                 case self::SYM_START:
                     $output[] = self::TKN_START;
                     break;
                 case self::SYM_STRAIGHT:
-                    $output[] = $this->getStraighToken($direction);
+                    $output[] = self::TKN_STR;
                     break;
                 case self::SYM_CUR_RIGTH:
-                    $direction = $this->calculateNewDirection($direction, $pattern[$i]);
                     $output[] = self::TKN_CUR_RIGTH;
                     break;
                 case self::SYM_CUR_LEFT:
-                    $direction = $this->calculateNewDirection($direction, $pattern[$i]);
                     $output[] = self::TKN_CUR_LEFT;
                     break;
             }
@@ -70,49 +58,15 @@ class Tokenizer
 
         return $output;
     }
-
-    private function calculateNewDirection($direction, $symbol)
-    {
-
-        $sign = -1;
-        if ($direction % 2 == 0) {
-            $sign = 1;
-        }
-
-        if ($symbol == self::SYM_CUR_LEFT) {
-             $sign *= -1;
-        }
-
-        $direction += $sign;
-        if ($direction < 1) {
-            $direction = 4;
-        }
-
-        if ($direction > 4) {
-            $direction = 1;
-        }
-
-
-        return $direction;           
-    }
-
-    private function getStraighToken($direction)
-    {
-        switch ($direction) {
-            case self::UP:
-                return self::TKN_STR_UP;
-            case self::DOWN:
-                return self::TKN_STR_DOWN;
-            case self::RIGTH:
-                return self::TKN_STR_RIGTH;
-            case self::LEFT:
-                return self::TKN_STR_LEFT;
-        }
-    }
 }
 
 class Renderer
 {
+    const UP = 1;
+    const RIGTH = 2;
+    const DOWN = 3;
+    const LEFT = 4;
+
     private $tokenizer;
 
     public function __construct(Tokenizer $tokenizer)
@@ -132,16 +86,110 @@ class Renderer
         }
 
         $tokens = $this->tokenizer->tokenize($pattern);
-        $chars = $this->renderFromTokens($tokens);
+        $chars = $this->calculateMatrix($tokens);
         
         $yBounds = $this->getAxisYMatrixBoundaries($chars);
 
         ksort($chars);
-        print_r($chars);
         foreach ($chars as $key => $yData) {
             echo $this->drawLine($yBounds, $yData). PHP_EOL;
         }
     }
+
+    private function calculateMatrix(Array $tokens)
+    {
+        $x = 0; $y = 0;
+        $direction = self::RIGTH;
+
+        $output = [];
+        foreach ($tokens as $token) {
+            switch ($token) {
+                case Tokenizer::TKN_START:
+                    $output[$x][$y] = '#';
+                    break;
+                case Tokenizer::TKN_STR:
+                    $output[$x][$y] = $this->getStraighSymbol($direction);
+                    break;
+                case Tokenizer::TKN_CUR_RIGTH:
+                    $direction = $this->calculateNewDirection($direction, $token);
+                    $output[$x][$y] = '\\';
+                    break;
+                case Tokenizer::TKN_CUR_LEFT:
+                    $direction = $this->calculateNewDirection($direction, $token);
+                    $output[$x][$y] = '/';
+                    break;
+            }
+
+            $this->updateAxis($direction, $x, $y);
+        }
+
+        return $output;
+    }
+
+    private function calculateNewDirection($direction, $symbol)
+    {
+        $sign = -1;
+        if ($direction % 2 == 0) {
+            $sign = 1;
+        }
+
+        if ($symbol == Tokenizer::TKN_CUR_LEFT) {
+             $sign *= -1;
+        }
+
+        $direction += $sign;
+        if ($direction < 1) {
+            $direction = 4;
+        }
+
+        if ($direction > 4) {
+            $direction = 1;
+        }
+
+
+        return $direction;           
+    }
+
+    private function updateAxis($direction, &$x, &$y)
+    {
+        switch ($direction) {
+            case self::UP:
+                $x--;
+                break;
+            case self::DOWN:
+                $x++;
+                break;
+            case self::RIGTH:
+                $y++;
+                break;
+            case self::LEFT:
+                $y--;
+                break;
+        }
+    }
+
+    private function getStraighSymbol($direction)
+    {
+        switch ($direction) {
+            case self::UP:
+            case self::DOWN:
+                return '|';
+            case self::RIGTH:
+            case self::LEFT:
+                return '-';
+        }
+    }
+
+    private function getAxisYMatrixBoundaries(Array $chars)
+    {
+        $yKeys = [];
+        foreach ($chars as $yValues) {
+            $yKeys = array_merge($yKeys, array_keys($yValues));
+        }
+
+        return [min($yKeys), max($yKeys)];
+    }
+
 
     private function drawLine(Array $yBounds, $data)
     {
@@ -157,57 +205,8 @@ class Renderer
 
         return $line;
     }
-
-    private function renderFromTokens(Array $tokens)
-    {
-        $x = 0; $y = 0;
-
-        $output = [];
-        foreach ($tokens as $token) {
-            switch ($token) {
-                case Tokenizer::TKN_START:
-                    $output[$x][$y] = '#';
-                    break;
-                case Tokenizer::TKN_STR_LEFT:
-                    $y--;
-                    $output[$x][$y] = '-';
-                    break;
-                case Tokenizer::TKN_STR_RIGTH:
-                    $y++;
-                    $output[$x][$y] = '-';
-                    break;
-                case Tokenizer::TKN_STR_UP:
-                    $x--;
-                    $output[$x][$y] = '|';
-                    break;
-                case Tokenizer::TKN_STR_DOWN:
-                    $x++;
-                    $output[$x][$y] = '|';
-                    break;
-                case Tokenizer::TKN_CUR_RIGTH:
-                    $output[$x][$y] = '\\';
-                    break;
-                case Tokenizer::TKN_CUR_LEFT:
-                    $output[$x][$y] = '/';
-                    break;
-            }
-        }
-
-        return $output;
-    }
-
-    private function getAxisYMatrixBoundaries(Array $chars)
-    {
-        $yKeys = [];
-        foreach ($chars as $yValues) {
-            $yKeys = array_merge($yKeys, array_keys($yValues));
-        }
-
-        return [min($yKeys), max($yKeys)];
-    }
 }
-
 
 $tokenizer = new Tokenizer();
 $renderer = new Renderer($tokenizer);
-$renderer->render('------\-/-/-\-----#-------\--/----------------\--\----\---/---');
+$renderer->render();
